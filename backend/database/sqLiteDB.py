@@ -28,12 +28,13 @@ class SQLiteDB():
             self.con.execute(query)
 
     def getData(self, symbol: str, date: datetime) -> DataFrame:
-        dateString = date.strftime("%Y-%m-$d")
+        dateString = date.strftime("%Y-%m-%d")
         query = "SELECT * FROM symbol_data WHERE symbol = ? AND date = ?"
         data = pd.read_sql_query(query, self.con, params=(symbol, dateString))
         data.rename(
-            index={"date": "Date"},
             columns={
+                "date": "Date",
+                "symbol": "Symbol",
                 "open" : "Open",
                 "high": "High",
                 "low": "Low",
@@ -44,11 +45,12 @@ class SQLiteDB():
             inplace=True
         )
         data["Date"] = pd.to_datetime(data["Date"])
+        data = data.set_index("Date")
         return data
 
     def getDataRange(self, symbol: str, startDate: datetime, endDate: datetime) -> DataFrame:
-        startDateString = startDate.strftime("%Y-%m-$d")
-        endDateString = endDate.strftime("%Y-%m-$d")
+        startDateString = startDate.strftime("%Y-%m-%d")
+        endDateString = endDate.strftime("%Y-%m-%d")
         query = """
         SELECT * FROM symbol_data 
         WHERE symbol = ? AND date BETWEEN ? AND ? 
@@ -56,11 +58,9 @@ class SQLiteDB():
         """
         data = pd.read_sql_query(query, self.con, params=(symbol, startDateString, endDateString))
         data.rename(
-            index={
-                "date": "Date",
-                "symbol": "Symbol"
-            },
             columns={
+                "date": "Date",
+                "symbol": "Symbol",
                 "open" : "Open",
                 "high": "High",
                 "low": "Low",
@@ -71,15 +71,19 @@ class SQLiteDB():
             inplace=True
         )
         data["Date"] = pd.to_datetime(data["Date"])
-        data = data.set_index(["Date", "Symbol"])
+        data = data.set_index("Date")
         return data
 
     def setData(self, symbol: str, data: DataFrame):
         data = data.copy()
-        data["symbol"] = symbol
+        data.reset_index(inplace=True)
+        data["Symbol"] = symbol
+        if "Adj Close" not in data.columns:
+            data["Adj Close"] = data["Close"]
         data.rename(
-            index={"Date": "date"},
             columns={
+                "Date": "date",
+                "Symbol": "symbol",
                 "Open" : "open",
                 "High": "high",
                 "Low": "low",
@@ -108,6 +112,7 @@ class SQLiteDB():
         """
         with self.con:
             self.con.executemany(query, records)
+            self.con.commit()
 
 
     def close(self):

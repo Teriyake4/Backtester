@@ -1,62 +1,69 @@
-from pandas import DataFrame
+from datetime import datetime
+import os
+from typing import Any, Dict, List, Type
 import pandas as pd
-from backend.core.portfolio import Portfolio
-from backend.core.strategies.base import Strategy
-from backend.database.sqLiteDB import SQLiteDB
-from backend.processing.validator import Validator
-from backend.interface.backtestRequest import BacktestRequest
+from core.metrics import Metrics
+from core.portfolio import Portfolio
+from core.strategies.base import Strategy
+from database.sqLiteDB import SQLiteDB
+from processing.validator import Validator
+from core.backtestRequest import BacktestRequest
 
 
 class Engine:
-    def runBacktest(request: BacktestRequest, strategy: Strategy):
-        # check db for no missing data
-        database = SQLiteDB("data/symbol_data.sb")
-        startDate = request.startDate
-        endDate = request.endDate
+    def runBacktest(
+            symbols: List[str],
+            startDate: datetime,
+            endDate: datetime,
+            strategyClass: Type[Strategy],
+            strategyParams: Dict[str, Any],
+            startingCash: float
+        ) -> Dict[str, Any]:
 
+        # check db for no missing data
+        print("Starting db")
+        dbPath = os.path.abspath(os.path.join("..", "data", "symbol_data.db"))
+        # os.makedirs(dbPath, exist_ok=True)
+        print(dbPath)
+        database = SQLiteDB(dbPath)
+        startDate = startDate
+        endDate = endDate
+
+        print("Getting data")
         # Get data
         listOfData = []
-        days = -1
-        for symbol in request.symbols:
+        for symbol in symbols:
             singleData = Validator.getDataRange(symbol, startDate, endDate, database)
-            singleData["Symbol"] = symbol
             listOfData.append(singleData)
-            if days == -1:
-                days = singleData.shape[0]
 
+        database.close()
         completeData = pd.concat(listOfData)
-        completeData = completeData.set_index("Symbol", append=True).swaplevel("Symbol", 0).sort_index()
-        
+        completeData = completeData.set_index("Symbol", append=True).sort_index()
 
+        print("Initiating portfolio and strategy")
+        portfolio = Portfolio(startingCash)
+        strategy = strategyClass(**strategyParams)
         strategy.onStart()
-        portfolio = Portfolio(request.startingCash)
 
+        print("Backtesting")
         # Main backtest loop
-        for i in range(days):
-            marketData = completeData.iloc[0:i+1]
+        for date in completeData.index.get_level_values("Date").unique():
+            marketData = completeData.loc[:date]
 
             portfolio._updateValue(marketData)
             trades = strategy.next(marketData, portfolio)
             portfolio._executeTrades(marketData, trades)
 
-        portfolio._liquidate(marketData)
+        portfolio._liquidate(completeData)
 
-
-
-
-        database.close()
-        
-
-        # if missing, call ingestion script
-        # run backtest with strat
-        # run metrics with trades
-        # return metrics
-
-
-    # runBacktest(startDate, endDate) -> results
-
-    # setSymbols([symbols])
-    
-    # setStrategy(strategy, strategyParams)
-
-    # setTester(testingConditions)
+        print("Calculating metrics")
+        # Calculate metrics of backtest
+        metrics = Metrics(completeData, portfolio)
+        results = {
+            "profitLoss": metrics.getProfitLoss(),
+            "annualizedReturn": metrics.getAnnualizedReturn(),
+            "maxDrawdown": metrics.getMaxDrawdown(),
+            "winProbability": metrics.getWinProbability(),
+            "portfolio": portfolio
+        }
+        return results

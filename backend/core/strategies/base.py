@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 from pandas import DataFrame
 
-from backend.core.portfolio import Portfolio
-from backend.core.tradeRequest import TradeRequest
+from core.portfolio import Portfolio
+from core.tradeRequest import TradeRequest
 
 
 class Strategy(ABC):

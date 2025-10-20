@@ -1,58 +1,63 @@
-from typing import List
+from typing import Dict, List
 
 from pandas import DataFrame
 import pandas as pd
 
-from backend.core.trade import Trade
-from backend.core.tradeRequest import TradeRequest
+from core.trade import Trade
+from core.tradeRequest import TradeRequest
 
 
 class Portfolio:
     def __init__(self, cash: float):
-        self.initialCash = cash
-        self.cash = cash
-        self.holdings = {} # {symbol: shares}
-        self.trades = []
-        multiIndex = pd.MultiIndex.from_tuples(names=["Date", "Symbol"])
-        self.history = pd.DataFrame(index=multiIndex, columns=["Value"])
-        self.cashHistory = pd.DataFrame(columns="Value")
+        self._initialCash = cash
+        self._cash = cash
+        self._holdings = {} # {symbol: shares}
+        self._trades = []
+        multiIndex = pd.MultiIndex.from_tuples([], names=["Date", "Symbol"])
+        self._history = pd.DataFrame(index=multiIndex, columns=["Value"])
+        self._cashHistory = pd.DataFrame(columns=["Value"])
 
-    def getInitialCash(self):
-        return self.initialCash
+    def getInitialCash(self) -> float:
+        return self._initialCash
     
-    def getCash(self):
-        return self.cash
+    def getCash(self) -> float:
+        return self._cash
     
-    def getHoldings(self):
-        return self.holdings
+    def getHoldings(self) -> Dict[str, int]:
+        return self._holdings
     
-    def getTrades(self):
-        return self.trades
+    def getTrades(self) -> List[Trade]:
+        return self._trades
     
-    def getHistory(self):
-        return self.history
+    def getHistory(self) -> DataFrame:
+        return self._history
+    
+    def getCashHistory(self) -> DataFrame:
+        return self._cashHistory
 
     def _updateValue(self, marketData: DataFrame):
-        date = marketData.index[-1][0]
-        self.cashHistory.loc[date] = self.cash
-        for symbol, shares in self.holdings.items():
-            self.history.loc[(date, symbol)] = shares * marketData.loc[(date, symbol), "Close"]
+        date = marketData.index.get_level_values("Date")[-1]
+        self._cashHistory.loc[date, "Value"] = self._cash
+        for symbol, shares in self._holdings.items():
+            self._history.loc[(date, symbol), "Value"] = shares * marketData.loc[(date, symbol), "Close"]
+
+            
 
     def _executeTrades(self, marketData: DataFrame, tradeReqeusts: List[TradeRequest]):
-        date = marketData.index[-1][0]
+        date = marketData.index.get_level_values("Date")[-1]
         buyRequests = []
         for request in tradeReqeusts:
-            symbol = request.symbol
-            if request.side is "BUY": # Execute SELL orders first to free up cash
+            if request.side == "BUY": # Execute SELL orders first to free up cash
                 buyRequests.append(request)
                 continue
+            symbol = request.symbol
             sharePrice = marketData.loc[(date, symbol), "Close"]
-            if symbol not in self.holdings:
+            if symbol not in self._holdings:
                 continue
-            elif request.shares > self.holdings[symbol]:
+            elif request.shares > self._holdings[symbol]:
                 continue
             else:
-                self.holdings[symbol] -= request.shares
+                self._holdings[symbol] -= request.shares
             trade = Trade(
                 symbol,
                 request.shares,
@@ -60,20 +65,21 @@ class Portfolio:
                 sharePrice,
                 date
             )
-            self.trades.append(trade)
+            self._trades.append(trade)
             value = request.shares * sharePrice
-            self.cash += value
+            self._cash += value
 
         # Execute BUY orders
         for request in buyRequests:
+            symbol = request.symbol
             sharePrice = marketData.loc[(date, symbol), "Close"]
             value = request.shares * sharePrice
-            if value > self.cash:
+            if value > self._cash:
                 continue
-            elif symbol not in self.holdings:
-                self.holdings[symbol] = request.shares
+            elif symbol not in self._holdings:
+                self._holdings[symbol] = request.shares
             else:
-                self.holdings[symbol] += request.shares
+                self._holdings[symbol] += request.shares
             trade = Trade(
                 symbol,
                 request.shares,
@@ -81,12 +87,14 @@ class Portfolio:
                 sharePrice,
                 date
             )
-            self.trades.append(trade)
-            self.cash -= value
+            self._trades.append(trade)
+            self._cash -= value
                     
     def _liquidate(self, marketData: DataFrame):
-        for symbol, shares in self.holdings.items():
-            date = marketData.index[-1][0]
+        for symbol, shares in self._holdings.items():
+            if shares == 0:
+                continue
+            date = marketData.index.get_level_values("Date")[-1]
             sharePrice = marketData.loc[(date, symbol), "Close"]
             trade = Trade(
                 symbol,
@@ -95,7 +103,7 @@ class Portfolio:
                 sharePrice,
                 date
             )
-            self.trades.append(trade)
+            self._trades.append(trade)
             value = shares * sharePrice
-            self.cash += value
+            self._cash += value
 

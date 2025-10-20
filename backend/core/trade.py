@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from backend.core.tradeRequest import Side
+from core.tradeRequest import Side
 
 
 class Trade:

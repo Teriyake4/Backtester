@@ -35,6 +35,7 @@ class Engine:
 
         # check db for no missing data
         dbPath = os.path.abspath(os.path.join("..", "data", "symbol_data.db"))
+        os.makedirs(os.path.dirname(dbPath), exist_ok=True)
         database = SQLiteDB(dbPath)
         startDate = startDate
         endDate = endDate

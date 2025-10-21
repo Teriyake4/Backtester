@@ -4,7 +4,6 @@ from pandas import DataFrame
 from pandas.tseries.holiday import USFederalHolidayCalendar
 import pandas as pd
 
-from database import sqLiteDB
 from database.base import DBInterface
 from processing.ingester import addSymbol
 

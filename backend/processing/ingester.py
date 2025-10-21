@@ -1,3 +1,4 @@
+import argparse
 from datetime import datetime, timedelta
 import os
 
@@ -24,11 +25,25 @@ def addSymbol(symbol: str, startDate: datetime, endDate: datetime, database: DBI
     database.setData(symbol, data)
 
 if __name__ == "__main__":
-    symbol = "MSFT"
-    start = datetime(2024, 10, 18)
-    end = datetime(2025, 5, 1)
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--symbol", type=str, required=True)
+    parser.add_argument("--start", type=str, required=True)
+    parser.add_argument("--end", type=str, required=True,)
+
+    args = parser.parse_args()
+
+    try:
+        startDate = datetime.strptime(args.start, "%Y-%m-%d")
+        endDate = datetime.strptime(args.end, "%Y-%m-%d")
+    except ValueError:
+        print("Error: Use YYYY-MM-DD.")
+        exit(1)
 
     dbPath = os.path.abspath(os.path.join("..", "data", "symbol_data.db"))
+
+    # Ensure the data directory exists
+    os.makedirs(os.path.dirname(dbPath), exist_ok=True)
     database = sqLiteDB(dbPath)
-    addSymbol(symbol, start, end, database)
+    addSymbol(args.symbol, startDate, endDate, database)
     database.close()

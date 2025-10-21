@@ -1,0 +1,12 @@
+name: backtester
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - pandas=2.3.3
+  - pydantic=2.12.2
+  - python=3.13.7
+  - sqlite=3.50.2
+  - pip:
+      - fastapi==0.119.1
+      - yfinance==0.2.66

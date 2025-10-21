@@ -7,7 +7,6 @@ from core.portfolio import Portfolio
 from core.strategies.base import Strategy
 from database.sqLiteDB import SQLiteDB
 from processing.validator import Validator
-from core.backtestRequest import BacktestRequest
 
 
 class Engine:
@@ -19,17 +18,27 @@ class Engine:
             strategyParams: Dict[str, Any],
             startingCash: float
         ) -> Dict[str, Any]:
+        """
+        Run backtest on a list of symbols within a date range using the specified strategy
+        
+        Parameters:
+            symbols (List[str]): List of symbols to backtest on.
+            startDate (datetime): Start date for the data range, inclusive.
+            endDate (datetime): End date for the data range, inclusive.
+            strategyClass (Strategy): Strategy class to use in the backtest.
+            strategyParams (Dict[str, Any]): Dictionary for parameters of strategy class.
+            startingCash (float): Initial cash to start backtest with.
+
+        Returns:
+            results (Dict[str, Any]): Contains metrics of backtest and portfolio after backtest run.
+        """
 
         # check db for no missing data
-        print("Starting db")
         dbPath = os.path.abspath(os.path.join("..", "data", "symbol_data.db"))
-        # os.makedirs(dbPath, exist_ok=True)
-        print(dbPath)
         database = SQLiteDB(dbPath)
         startDate = startDate
         endDate = endDate
 
-        print("Getting data")
         # Get data
         listOfData = []
         for symbol in symbols:
@@ -40,12 +49,10 @@ class Engine:
         completeData = pd.concat(listOfData)
         completeData = completeData.set_index("Symbol", append=True).sort_index()
 
-        print("Initiating portfolio and strategy")
         portfolio = Portfolio(startingCash)
         strategy = strategyClass(**strategyParams)
         strategy.onStart()
 
-        print("Backtesting")
         # Main backtest loop
         for date in completeData.index.get_level_values("Date").unique():
             marketData = completeData.loc[:date]
@@ -56,7 +63,6 @@ class Engine:
 
         portfolio._liquidate(completeData)
 
-        print("Calculating metrics")
         # Calculate metrics of backtest
         metrics = Metrics(completeData, portfolio)
         results = {

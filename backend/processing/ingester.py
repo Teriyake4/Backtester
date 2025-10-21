@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import os
 
 import yfinance as yf
 
@@ -18,6 +19,7 @@ def addSymbol(symbol: str, startDate: datetime, endDate: datetime, database: DBI
         database (DBInterface): Database to put the retrieved data into.
     """
     data = yf.download(symbol, start=startDate, end=endDate+timedelta(days=1), interval="1d")
+    # Make into single index df
     data.columns = data.columns.droplevel(1)
     database.setData(symbol, data)
 
@@ -25,6 +27,8 @@ if __name__ == "__main__":
     symbol = "MSFT"
     start = datetime(2024, 10, 18)
     end = datetime(2025, 5, 1)
-    database = sqLiteDB("data/symbol_data.db")
+
+    dbPath = os.path.abspath(os.path.join("..", "data", "symbol_data.db"))
+    database = sqLiteDB(dbPath)
     addSymbol(symbol, start, end, database)
     database.close()

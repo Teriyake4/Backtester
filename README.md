@@ -18,7 +18,7 @@ To run the backend.
 fastapi dev main.py
 ```
 
-Run The following commands to setup the fronend environment.
+Run The following commands to setup the frontend environment.
 ```
 cd frontend
 npm install
